@@ -46,7 +46,11 @@ add_subdirectory(third_party/spdlog EXCLUDE_FROM_ALL)
 add_subdirectory(third_party/expected EXCLUDE_FROM_ALL)
 add_subdirectory(third_party/fmt EXCLUDE_FROM_ALL)
 add_subdirectory(third_party/qt-solutions EXCLUDE_FROM_ALL)
+
+SET(BUILD_SHARED_LIBS_CACHED ${BUILD_SHARED_LIBS} CACHE BOOL "" FORCE)
+SET(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 add_subdirectory(third_party/pugixml EXCLUDE_FROM_ALL)
+SET(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_CACHED} CACHE BOOL "" FORCE)
 add_subdirectory(third_party/range-v3 EXCLUDE_FROM_ALL)
 
 add_library(mpark_variant INTERFACE)
@@ -83,9 +87,12 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/bin")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/bin")
 
-#create an empty qt.conf file
-file(WRITE ${CMAKE_BINARY_DIR}/bin/qt.conf "")
-install(FILES ${CMAKE_BINARY_DIR}/bin/qt.conf DESTINATION bin)
+if(CREATE_QT_CONF_FILE)
+    #create an empty qt.conf file
+    file(WRITE ${CMAKE_BINARY_DIR}/bin/qt.conf "")
+    install(FILES ${CMAKE_BINARY_DIR}/bin/qt.conf DESTINATION bin)
+endif()
+
 
 
 # Qt and Qwt
@@ -147,14 +154,16 @@ if (UNIX)
 endif()
 
 
-if(EXISTS ${PROJECT_SOURCE_DIR}/thymio-blockly-standalone/CMakeLists.txt)
-    add_subdirectory(${PROJECT_SOURCE_DIR}/thymio-blockly-standalone)
-    message("-- Found thymio-blockly-standalone, will bundle blockly")
+if(FLAT_PACK_BUILD)
+    SET(MOBSYA_WEBAPPS_ROOT_DIR "share/")
 endif()
 
 
-if(EXISTS ${PROJECT_SOURCE_DIR}/scratch-gui/build/index.html)
-    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/scratch-gui/build/ DESTINATION ./scratch)
+if(EXISTS ${PROJECT_SOURCE_DIR}/scratch/index.html)
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/scratch/ DESTINATION "${MOBSYA_WEBAPPS_ROOT_DIR}scratch")
+endif()
+if(EXISTS ${PROJECT_SOURCE_DIR}/thymio_blockly/index.html)
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/thymio_blockly/ DESTINATION "${MOBSYA_WEBAPPS_ROOT_DIR}thymio_blockly")
 endif()
 
 
