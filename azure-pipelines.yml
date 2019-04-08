@@ -45,9 +45,10 @@ jobs:
       project: '$(System.TeamProject)'
       pipeline: 5
       artifactName: 'thymio-blockly'
-      branchName: 'master'
       downloadPath: '$(Build.SourcesDirectory)/_artifacts'
       buildType: specific
+      buildVersionToDownload: 'specific'
+      buildId: 77
     displayName: 'Download blockly'
 
   - task: DownloadBuildArtifacts@0
@@ -56,9 +57,10 @@ jobs:
       project: '$(System.TeamProject)'
       pipeline: 4
       artifactName: 'scratch-gui'
-      branchName: 'develop'
       downloadPath: '$(Build.SourcesDirectory)/_artifacts'
       buildType: specific
+      buildVersionToDownload: 'specific'
+      buildId: 126
     displayName: 'Download scratch'
 
   - script: |
