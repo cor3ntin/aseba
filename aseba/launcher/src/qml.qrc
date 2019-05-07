@@ -71,5 +71,11 @@
         <file>apps/scratch/desc.it.html</file>
         <file>apps/blockly/desc.fr.html</file>
         <file>apps/blockly/desc.it.html</file>
+        <file>qml/wirelessconfigurator/WirelessConfigurator.qml</file>
+        <file>qml/wirelessconfigurator/TitleBar.qml</file>
+        <file>assets/multiple-thymio-one-dongle.svg</file>
+        <file>assets/usb-cable-and-dongle.svg</file>
+        <file>assets/one-thymio-one-dongle.svg</file>
+        <file>qml/wirelessconfigurator/Button.qml</file>
     </qresource>
 </RCC>
