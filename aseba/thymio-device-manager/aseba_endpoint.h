@@ -136,8 +136,8 @@ public:
         uint8_t channel = 0;
     };
 
-    bool wireless_set_settings(uint8_t channel, uint16_t network_id, uint16_t dongle_id);
-    wireless_settings wireless_get_settings() const;
+    bool wireless_set_settings(uint16_t network_id, uint16_t dongle_id, uint8_t channel);
+    wireless_settings wireless_get_settings();
 
     bool upgrade_firmware(uint16_t id, std::function<void(boost::system::error_code, double, bool)> cb);
 
@@ -149,6 +149,9 @@ public:
     }
 
     void start();
+    void stop();
+    void cancel_all_ops();
+    void reboot();
 
     template <typename CB = write_callback>
     void write_messages(std::vector<std::shared_ptr<Aseba::Message>>&& messages, CB&& cb = {}) {
@@ -193,11 +196,10 @@ public:
 
     void handle_read(boost::system::error_code ec, std::shared_ptr<Aseba::Message> msg) {
         if(ec || !msg) {
-            mLogError("Error while reading aseba message {}", ec ? ec.message() : "Message corrupted");
-            if(!ec && !m_upgrading_firmware)
+            if(!ec && !msg && !m_upgrading_firmware)
                 read_aseba_message();
-            if(!wireless_cfg_mode_enabled())
-                return;
+            mLogError("Error while reading aseba message {}", ec ? ec.message() : "Message corrupted");
+            return;
         }
         mLogTrace("Message received : '{}' {}", msg->message_name(), ec.message());
 
@@ -229,7 +231,7 @@ public:
             // Update node status
             it->second.last_seen = std::chrono::steady_clock::now();
         }
-        if(m_upgrading_firmware || this->wireless_cfg_mode_enabled())
+        if(m_rebooting || m_upgrading_firmware || this->wireless_cfg_mode_enabled())
             return;
         read_aseba_message();
     }
@@ -266,7 +268,7 @@ private:
     }
 
     void schedule_send_ping(boost::posix_time::time_duration delay = boost::posix_time::seconds(1)) {
-        if(wireless_cfg_mode_enabled() || m_upgrading_firmware)
+        if(m_rebooting || wireless_cfg_mode_enabled() || m_upgrading_firmware)
             return;
 
         auto timer = std::make_shared<boost::asio::deadline_timer>(m_io_context);
@@ -289,7 +291,7 @@ private:
     }
 
     void schedule_nodes_health_check(boost::posix_time::time_duration delay = boost::posix_time::seconds(5)) {
-        if(wireless_cfg_mode_enabled() || m_upgrading_firmware)
+        if(m_rebooting || wireless_cfg_mode_enabled() || m_upgrading_firmware)
             return;
 
         auto timer = std::make_shared<boost::asio::deadline_timer>(m_io_context);
@@ -303,7 +305,7 @@ private:
             for(auto it = m_nodes.begin(); it != m_nodes.end();) {
                 const auto& info = it->second;
                 auto d = std::chrono::duration_cast<std::chrono::seconds>(now - info.last_seen);
-                if(!m_upgrading_firmware && !wireless_cfg_mode_enabled() && d.count() >= 5) {
+                if(!m_rebooting && !m_upgrading_firmware && !wireless_cfg_mode_enabled() && d.count() >= 5) {
                     mLogTrace("Node {} has been unresponsive for too long, disconnecting it!",
                               it->second.node->native_id());
                     info.node->set_status(aseba_node::status::disconnected);
@@ -359,6 +361,11 @@ private:
     }
 
     void write_next() {
+        if(m_rebooting && m_msg_queue.empty()) {
+            stop();
+            return;
+        }
+
         if(!m_msg_queue.empty() && !wireless_cfg_mode_enabled() && !m_upgrading_firmware) {
             auto that = shared_from_this();
             auto cb =
@@ -417,9 +424,10 @@ private:
         bool pairing = false;
     };
     bool m_upgrading_firmware = false;
+    bool m_rebooting = false;
 
     std::unique_ptr<WirelessDongleSettings> m_wireless_dongle_settings;
-    bool sync_wireless_dongle_settings();
+    bool sync_wireless_dongle_settings(bool flash);
 };  // namespace mobsya
 
 }  // namespace mobsya
