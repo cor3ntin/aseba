@@ -49,12 +49,11 @@ aseba_endpoint::pointer aseba_endpoint::create_for_tcp(boost::asio::io_context& 
 void aseba_endpoint::start() {
     // Briefly put the dongle (if  any) in configuration
     // Mode to read its settings
-    if(is_wireless()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    /*if(is_wireless()) {
         auto settings = this->wireless_get_settings();
         mLogInfo("Thymio 2 Dongle Wireless settings: network: {:x}, channel: {}", settings.network_id,
                  settings.channel);
-    }
+    }*/
 
     auto& registery = boost::asio::use_service<aseba_node_registery>(m_io_context);
     registery.register_endpoint(shared_from_this());
@@ -240,9 +239,17 @@ bool aseba_endpoint::wireless_enable_configuration_mode(bool enable) {
         if(variant_ns::holds_alternative<usb_serial_port>(m_endpoint)) {
             boost::asio::use_service<serial_acceptor_service>(m_io_context).pause(true);
             boost::system::error_code ec;
+            serial().set_option(boost::asio::serial_port::baud_rate(115200));
+            serial().set_option(boost::asio::serial_port::parity(boost::asio::serial_port::parity::none));
+            serial().set_option(boost::asio::serial_port::stop_bits(boost::asio::serial_port::stop_bits::one));
+            serial().set_rts(enable);
+            serial().set_data_terminal_ready(!enable);
             serial().purge();
             serial().set_rts(enable);
             serial().set_data_terminal_ready(!enable);
+            serial().set_rts(enable);
+            serial().set_data_terminal_ready(!enable);
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
             boost::asio::use_service<serial_acceptor_service>(m_io_context).pause(false);
         }
 #endif
@@ -264,16 +271,23 @@ bool aseba_endpoint::sync_wireless_dongle_settings(bool flash) {
             m_wireless_dongle_settings->data.ctrl = flash ? 0x01 : 0;
             if(device.write_some(boost::asio::buffer(&m_wireless_dongle_settings->data, s), ec) != s)
                 return false;
-            auto read = device.read_some(boost::asio::buffer(&m_wireless_dongle_settings->data, s), ec);
+            uint8_t buf[1024];
+            auto read = device.read_some(boost::asio::buffer(&buf, 1024), ec);
+            memcpy(&m_wireless_dongle_settings->data, buf, sizeof(WirelessDongleSettings::Data));
             if(read < s - 1)
                 return false;
 
-            // Notify the registery that this endpoint may have changed
-            boost::asio::use_service<aseba_node_registery>(m_io_context).register_endpoint(shared_from_this());
+
             return true;
         },
         m_endpoint);
     wireless_enable_configuration_mode(false);
+
+    // Notify the registery that this endpoint may have changed
+    boost::asio::post(m_io_context, [ptr = shared_from_this(), &ctx = m_io_context] {
+        boost::asio::use_service<aseba_node_registery>(ctx).register_endpoint(ptr);
+    });
+
     return res;
 }
 
