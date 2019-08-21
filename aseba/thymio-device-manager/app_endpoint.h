@@ -9,6 +9,7 @@
 #include "flatbuffers_messages.h"
 #include "aseba_node_registery.h"
 #include "aseba_nodeid_generator.h"
+#include "wireless_configurator_service.h"
 #include "tdm.h"
 #include "log.h"
 #include "app_token_manager.h"
@@ -129,8 +130,7 @@ private:
 
 template <typename Socket>
 class application_endpoint : public application_endpoint_base<application_endpoint<Socket>, Socket>,
-                             public node_status_monitor,
-                             public endpoint_monitor {
+                             public node_status_monitor {
 public:
     using base = application_endpoint_base<application_endpoint<Socket>, Socket>;
     application_endpoint(boost::asio::io_context& ctx) : base(ctx), m_ctx(ctx), m_pings_timer(ctx) {}
@@ -153,9 +153,6 @@ public:
 
         // Subscribe to node change events
         start_node_monitoring(registery());
-
-        // Subscribe to endpoints change events
-        start_endpoints_monitoring(registery());
     }
 
     template <typename CB>
@@ -295,6 +292,12 @@ public:
                 break;
             }
 
+            case mobsya::fb::AnyMessage::EnableThymio2PairingMode: {
+                auto& service = boost::asio::use_service<wireless_configurator_service>(this->m_ctx);
+                service.enable();
+                break;
+            }
+
             default: mLogWarn("Message {} from application unsupported", EnumNameAnyMessage(msg.message_type())); break;
         }
     }
@@ -316,7 +319,6 @@ public:
         /* Disconnecting the node monotoring status before unlocking the nodes,
          * otherwise we would receive node status event during destroying the endpoint, leading to a crash */
         node_status_monitor::disconnect();
-        endpoint_monitor::disconnect();
 
         for(auto& p : m_locked_nodes) {
             auto ptr = p.second.lock();
@@ -369,10 +371,6 @@ public:
         boost::asio::defer(this->m_strand, [that = this->shared_from_this(), node, state]() {
             that->do_node_execution_state_changed(node, state);
         });
-    }
-
-    void endpoints_changed() {
-        boost::asio::defer(this->m_strand, [that = this->shared_from_this()]() { that->do_endpoints_changed(); });
     }
 
 private:
@@ -746,7 +744,7 @@ private:
     }
 
     void send_thymio2_dongle_info(uint32_t request_id, node_id dongle_id) {
-        auto dongle = registery().thymio2_wireless_dongle(dongle_id);
+        /*auto dongle = registery().thymio2_wireless_dongle(dongle_id);
         if(!dongle) {
             // error
             return;
@@ -760,11 +758,12 @@ private:
         write_message(wrap_fb(
             builder,
             fb::CreateThymio2WirelessDongle(builder, request_id, node_offset, settings.network_id, settings.channel)));
+            */
     }
 
     void pair_thymio2_and_dongle(uint32_t request_id, node_id dongle_id, node_id robot_id, uint16_t network_id,
                                  uint8_t channel) {
-        auto dongle = registery().thymio2_wireless_dongle(dongle_id);
+        /*auto dongle = registery().thymio2_wireless_dongle(dongle_id);
         auto node = registery().node_from_id(robot_id);
         if(!dongle || !node) {
             // error
@@ -802,6 +801,8 @@ private:
         write_message(wrap_fb(
             builder,
             fb::CreateThymio2WirelessDongle(builder, request_id, node_offset, settings.network_id, settings.channel)));
+
+            */
     }
     void watch_node_or_group(uint32_t request_id, const aseba_node_registery::node_id& id, uint32_t flags) {
         auto group = registery().group_from_id(id);

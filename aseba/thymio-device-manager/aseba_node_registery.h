@@ -52,6 +52,9 @@ public:
         return *it;
     }
 
+
+    void disconnect_all_wireless_endpoints();
+
 private:
     void remove_duplicated_node(const std::shared_ptr<aseba_node>& node);
 
@@ -89,8 +92,6 @@ private:
     boost::signals2::signal<void(std::shared_ptr<aseba_node>, node_id, aseba_node::status)>
         m_node_status_changed_signal;
     friend class node_status_monitor;
-
-    boost::signals2::signal<void()> m_endpoints_changed_signal;
     friend class endpoint_monitor;
 };
 
@@ -109,24 +110,6 @@ protected:
         m_connection = registery.m_node_status_changed_signal.connect(
             boost::bind(&node_status_monitor::node_changed, this, boost::placeholders::_1, boost::placeholders::_2,
                         boost::placeholders::_3));
-    }
-
-private:
-    boost::signals2::scoped_connection m_connection;
-};
-
-class endpoint_monitor {
-public:
-    virtual ~endpoint_monitor();
-    void disconnect() {
-        m_connection.disconnect();
-    }
-    virtual void endpoints_changed() = 0;
-
-protected:
-    void start_endpoints_monitoring(aseba_node_registery& registery) {
-        m_connection =
-            registery.m_endpoints_changed_signal.connect(boost::bind(&endpoint_monitor::endpoints_changed, this));
     }
 
 private:

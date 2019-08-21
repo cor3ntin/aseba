@@ -635,6 +635,13 @@ Request ThymioDeviceManagerClientEndpoint::upgradeFirmware(const QUuid& id) {
     return r;
 }
 
+Request ThymioDeviceManagerClientEndpoint::enableWirelessPairingMode() {
+    Request r = prepare_request<Request>();
+    flatbuffers::FlatBufferBuilder builder;
+    write(wrap_fb(builder, fb::CreateEnableThymio2PairingMode(builder)));
+    return r;
+}
+
 Thymio2WirelessDongleInfoRequest ThymioDeviceManagerClientEndpoint::requestDongleInfo(const QUuid& uuid) {
     Thymio2WirelessDongleInfoRequest r = prepare_request<Thymio2WirelessDongleInfoRequest>();
     flatbuffers::FlatBufferBuilder builder;

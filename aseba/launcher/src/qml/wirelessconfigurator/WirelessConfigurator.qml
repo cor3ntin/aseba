@@ -211,14 +211,15 @@ Rectangle {
 
     Component.onCompleted: {
         client.localEndpointChanged.connect(function () {
-            localEndpoint = client.localEndpoint
-            donglesManager = null
+            wirelessConfigurator.localEndpoint = client.localEndpoint
+            wirelessConfigurator.localEndpoint.enableWirelessPairingMode();
+            wirelessConfigurator.donglesManager = null
             dongles = null
             if(!localEndpoint) {
                 return
             }
 
-            donglesManager = localEndpoint.donglesManager
+            wirelessConfigurator.donglesManager = localEndpoint.donglesManager
 
             if(!donglesManager) {
                 return
@@ -246,6 +247,7 @@ Rectangle {
             donglesManager = localEndpoint.donglesManager
             dongles = donglesManager.dongles
             nodes = localEndpoint.nodes
+            localEndpoint.enableWirelessPairingMode();
             updateState()
         }
     }

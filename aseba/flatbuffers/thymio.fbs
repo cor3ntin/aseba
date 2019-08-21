@@ -386,6 +386,9 @@ table Thymio2WirelessDongle {
     channel_id: uint8;
 }
 
+table EnableThymio2PairingMode {
+}
+
 table Thymio2WirelessDonglesChanged {
     dongles: [NodeId];
 }
@@ -433,6 +436,7 @@ union AnyMessage {
     FirmwareUpgradeRequest,
     FirmwareUpgradeStatus,
     Ping,
+    EnableThymio2PairingMode,
     Thymio2WirelessDonglesChanged,
     Thymio2WirelessDongleInfoRequest,
     Thymio2WirelessDongle,
