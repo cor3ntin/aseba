@@ -56,7 +56,6 @@ public:
     Request upgradeFirmware(const QUuid& id);
 
     Q_INVOKABLE Request enableWirelessPairingMode();
-    Q_INVOKABLE Thymio2WirelessDongleInfoRequest requestDongleInfo(const QUuid& uuid);
     Thymio2WirelessDonglePairingRequest pairThymio2Wireless(const QUuid& dongleId, const QUuid& nodeId,
                                                             quint16 networkId, quint8 channel);
 

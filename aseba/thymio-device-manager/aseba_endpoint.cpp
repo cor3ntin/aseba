@@ -20,6 +20,8 @@ aseba_endpoint::~aseba_endpoint() {
 }
 
 void aseba_endpoint::destroy() {
+    if(m_endpoint.is_empty())
+        return;
     mLogInfo("Destroying endpoint");
     std::for_each(std::begin(m_nodes), std::end(m_nodes), [](auto&& node) { node.second.node->disconnect(); });
     boost::asio::post([ctx = &m_io_context]() {
@@ -189,6 +191,7 @@ bool aseba_endpoint::upgrade_firmware(
         auto firmware = f.get();
         variant_ns::visit(
             overloaded{
+                [](variant_ns::monostate&) {},
 #ifdef MOBSYA_TDM_ENABLE_USB
                 [&ptr, id, &firmware, &cb, options](usb_device& usb) {
                     boost::asio::use_service<usb_acceptor_service>(ptr->m_io_context).pause(false);

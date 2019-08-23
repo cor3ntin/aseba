@@ -27,6 +27,8 @@ void serial_acceptor_service::shutdown() {
 }
 
 void serial_acceptor_service::free_device(const std::string& s) {
+
+    std::unique_lock<std::mutex> _(m_req_mutex);
     auto it = std::find(m_known_devices.begin(), m_known_devices.end(), s);
     if(it != m_known_devices.end()) {
         m_known_devices.erase(it);
@@ -38,6 +40,7 @@ void serial_acceptor_service::free_device(const std::string& s) {
 
 
 bool serial_acceptor_service::handle_request(udev_device* dev, request& r) {
+    std::unique_lock<std::mutex> _(m_req_mutex);
     if(m_requests.empty() || m_paused)
         return false;
     if(!dev) {
@@ -118,11 +121,12 @@ void serial_acceptor_service::handle_request_by_active_enumeration() {
         auto path = udev_list_entry_get_name(entry);
         auto dev = udev_device_new_from_syspath(m_udev, path);
         auto n = udev_device_get_devnode(dev);
-        known_devices.insert(n);
+        if(n)
+            known_devices.insert(n);
         try {
             if(handle_request(dev, m_requests.front())) {
                 udev_enumerate_unref(enumerate);
-                return;
+                break;
             }
         } catch(...) {
         }
@@ -130,11 +134,17 @@ void serial_acceptor_service::handle_request_by_active_enumeration() {
     udev_enumerate_unref(enumerate);
 
 
-    for(auto d : m_known_devices) {
-        if(known_devices.find(d) == known_devices.end()) {
-            mLogError("Removed {}", d);
+    std::unique_lock<std::mutex> _(m_req_mutex);
+    for(auto it = m_known_devices.begin(); it != m_known_devices.end();) {
+        if(known_devices.find(*it) == known_devices.end()) {
+            mLogError("Removed {}", *it);
+            device_unplugged(*it);
+            it = m_known_devices.erase(it);
+        } else {
+            ++it;
         }
     }
+    async_wait();
 }
 
 void serial_acceptor_service::async_wait() {

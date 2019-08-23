@@ -157,7 +157,8 @@ public:
             [that](boost::system::error_code ec, std::shared_ptr<Aseba::Message> msg) { that->handle_read(ec, msg); });
 
         variant_ns::visit(
-            [&cb](auto& underlying) { return mobsya::async_read_aseba_message(underlying, std::move(cb)); },
+            overloaded{[](variant_ns::monostate&) {},
+                       [&cb](auto& underlying) { mobsya::async_read_aseba_message(underlying, std::move(cb)); }},
             m_endpoint.ep());
     }
 
@@ -351,11 +352,11 @@ private:
                 boost::asio::bind_executor(m_strand, [that](boost::system::error_code ec) { that->handle_write(ec); });
 
             auto& message = *(m_msg_queue.front().first);
-            variant_ns::visit(
-                [&cb, &message](auto& underlying) {
-                    return mobsya::async_write_aseba_message(underlying, message, std::move(cb));
-                },
-                m_endpoint.ep());
+            variant_ns::visit(overloaded{[](variant_ns::monostate&) {},
+                                         [&cb, &message](auto& underlying) {
+                                             mobsya::async_write_aseba_message(underlying, message, std::move(cb));
+                                         }},
+                              m_endpoint.ep());
         }
     }
 

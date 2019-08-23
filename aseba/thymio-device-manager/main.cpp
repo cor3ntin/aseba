@@ -46,7 +46,7 @@ void run_service(boost::asio::io_context& ctx) {
 
     [[maybe_unused]] mobsya::wireless_configurator_service& ws =
         boost::asio::make_service<mobsya::wireless_configurator_service>(ctx);
-    ws.enable();
+    // ws.enable();
 
     // Create a server for regular tcp connection
     mobsya::application_server<mobsya::tcp::socket> tcp_server(ctx, 0);

@@ -12,16 +12,22 @@ namespace mobsya {
 
 void aseba_device::cancel_all_ops() {
     boost::system::error_code ec;
-    variant_ns::visit([&ec](auto& underlying) { return underlying.cancel(ec); }, m_endpoint);
+    variant_ns::visit(overloaded{[](variant_ns::monostate&) {}, [&ec](auto& underlying) { underlying.cancel(ec); }},
+                      m_endpoint);
 }
 
 aseba_device::~aseba_device() {
     free_endpoint();
 }
 
+aseba_device::aseba_device(aseba_device&& o) {
+    std::swap(m_endpoint, o.m_endpoint);
+}
+
 void aseba_device::free_endpoint() {
     variant_ns::visit(
-        overloaded{[this](tcp_socket&) {
+        overloaded{[](variant_ns::monostate&) {},
+                   [this](tcp_socket&) {
                        boost::asio::post(get_io_context(), [this, &ctx = get_io_context()] {
                            boost::asio::use_service<aseba_tcp_acceptor>(ctx).free_endpoint(this);
                        });
@@ -29,6 +35,10 @@ void aseba_device::free_endpoint() {
 #ifdef MOBSYA_TDM_ENABLE_SERIAL
                    ,
                    [this](mobsya::usb_serial_port& d) {
+                       if(d.device_path().empty())
+                           return;
+
+
                        auto timer = std::make_shared<boost::asio::deadline_timer>(get_io_context());
                        timer->expires_from_now(boost::posix_time::milliseconds(500));
                        timer->async_wait([timer, path = d.device_path(), &ctx = get_io_context()](auto ec) {
@@ -52,7 +62,7 @@ void aseba_device::free_endpoint() {
 }
 
 void aseba_device::stop() {
-    variant_ns::visit(overloaded{[](tcp_socket& socket) { socket.cancel(); }
+    variant_ns::visit(overloaded{[](variant_ns::monostate&) {}, [](tcp_socket& socket) { socket.cancel(); }
 #ifdef MOBSYA_TDM_ENABLE_SERIAL
                                  ,
                                  [](mobsya::usb_serial_port& d) {
@@ -69,7 +79,7 @@ void aseba_device::stop() {
 }
 
 void aseba_device::close() {
-    variant_ns::visit(overloaded{[](tcp_socket&) {}
+    variant_ns::visit(overloaded{[](variant_ns::monostate&) {}, [](tcp_socket&) {}
 #ifdef MOBSYA_TDM_ENABLE_SERIAL
                                  ,
                                  [](mobsya::usb_serial_port& d) { d.close(); }

@@ -20,11 +20,11 @@ class aseba_device {
 public:
     template <typename... Args>
     explicit aseba_device(Args&&... args) : m_endpoint(std::forward<Args>(args)...) {}
-    aseba_device(aseba_device&&) = default;
+    aseba_device(aseba_device&&);
     ~aseba_device();
 
     using tcp_socket = boost::asio::ip::tcp::socket;
-    using endpoint_t = variant_ns::variant<tcp_socket
+    using endpoint_t = variant_ns::variant<variant_ns::monostate, tcp_socket
 #ifdef MOBSYA_TDM_ENABLE_USB
                                            ,
                                            usb_device
@@ -77,6 +77,10 @@ public:
         return false;
     }
 
+    bool is_empty() const {
+        return variant_ns::holds_alternative<variant_ns::monostate>(m_endpoint);
+    }
+
     bool is_tcp() const {
         return variant_ns::holds_alternative<tcp_socket>(m_endpoint);
     }
@@ -121,6 +125,7 @@ public:
     void reboot();
 
     endpoint_t m_endpoint;
+    bool m_active = false;
 };
 
 }  // namespace mobsya
