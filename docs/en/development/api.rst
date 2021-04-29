@@ -111,18 +111,3 @@ saturate the bandwith between the Device Manager and the Thymios.
 
 To start monitoring some infos of a Thymios send a ``WatchNode`` message, containing a bitflag of the infos you want to watch.
 Watchable infos include variable change, vm status changes and events.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

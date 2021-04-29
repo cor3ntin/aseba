@@ -2,6 +2,16 @@
 
 namespace mobsya.fb;
 
+
+/// Basic Principle
+/// Client and TDM excchange requests and response of different types
+/// All tables are wrapped in a Message (see end of the file)
+/// Most requests have a request_id will shall be a random integrer.
+/// The reply to a given request will have the same request_id
+/// Clients should not assume requests are treated in the order they are sent.
+
+
+
 //Handshake messages
 //The client needs to initiate the session by sending a ConnectionHandshake.
 //If the client sends a message before a ConnectionHandshake, the server will
@@ -90,6 +100,7 @@ enum ErrorType : int {
   ///Unsuported variable type - For SetVariables and Events
   unsupported_variable_type = 4,
 
+  // Pairing errors
   thymio2_pairing_write_dongle_failed = 5,
   thymio2_pairing_write_robot_failed = 6,
 }
@@ -119,9 +130,9 @@ table Node {
   status:NodeStatus;
   type:NodeType;
   name:string;
-  capabilities:ulong  = 0;
-  fw_version:string;
-  latest_fw_version:string;
+  capabilities:ulong  = 0;   // bitflags of NodeCapability
+  fw_version:string;         // current firmware version
+  latest_fw_version:string;  // if non empty, an update is available
 }
 
 table NamedValue {
@@ -129,11 +140,16 @@ table NamedValue {
     value: [ubyte] (flexbuffer);
 }
 
+// Variables are represented as a flexbuffer,
+// which serializes a property (see propertiy.h)
 table NodeVariable {
     name: string (key);
     value: [ubyte] (flexbuffer);
 }
 
+// When variables are monitored (see WatchNode), variables modified will be sent
+// Upon starting to watch variables, a VariablesChanged message is emmitted containing all variables.
+// After that non-modified variables are not sent again.
 table VariablesChanged {
    node_id:NodeId;
    vars:[NodeVariable];
@@ -141,12 +157,15 @@ table VariablesChanged {
    timestamp: ulong = 0;
 }
 
+// Send events to a specific aseba node.
+// There can be several events sent at the same time
 table SendEvents {
    request_id:uint;
    node_id:NodeId;
    events:[NamedValue];
 }
 
+// An aseba node as emitted aone or more events
 table EventsEmitted {
    node_id:NodeId;
    events:[NamedValue];
@@ -170,6 +189,8 @@ table RequestNodeAsebaVMDescription {
   request_id:uint;
   node_id:NodeId;
 }
+
+///--------- ASEBA VM DESCRIPTION ----------------------------------------------------
 
 /// The description of an Aseba VM, sent in response to a RequestNodeAsebaVMDescription
 table NodeAsebaVMDescription {
@@ -207,14 +228,16 @@ table AsebaNativeFunctionParameter {
   size:uint;
 }
 
-/// Modify the value of specified variables
+//------------------------------------------------------------------------------------------
+
+/// Modify the value of specified sharedvariables
 table SetVariables {
    request_id:uint;
    node_or_group_id:NodeId;
    vars:[NodeVariable];
 }
 
-/// Set a new name for this nùode
+/// Set a new name for this node
 table RenameNode {
    request_id:uint;
    node_id:NodeId;
@@ -246,20 +269,12 @@ enum CompilationOptions : uint (bit_flags) {
 }
 
 
-table CompileAndLoadCodeOnVM{
+table CompileAndLoadCodeOnVM {
     request_id:uint;
     node_id:NodeId;
     language:ProgrammingLanguage = Aseba;
     program:string (required);
     options:CompilationOptions = 0;
-}
-
-table CompilationResultFailure {
-    request_id:uint;
-    message:string (required);
-    character:uint;
-    line:uint;
-    column:uint;
 }
 
 table CompileAndSave{
@@ -270,6 +285,16 @@ table CompileAndSave{
     options:CompilationOptions = 0;
 }
 
+
+// Compilation failure, after a scratchpad update, CompileAndSave, or CompileAndLoadCodeOnVM
+table CompilationResultFailure {
+    request_id:uint;
+    message:string (required);
+    character:uint;
+    line:uint;
+    column:uint;
+}
+
 table SaveBytecode{
     request_id:uint;
     node_id:NodeId;
@@ -277,6 +302,7 @@ table SaveBytecode{
 }
 
 
+// Statistics about a succesful compilation
 table CompilationResultSuccess {
     request_id:uint;
     bytecode_size:uint;
@@ -285,6 +311,7 @@ table CompilationResultSuccess {
     total_variables_size:uint;
 }
 
+// Control the VM
 enum VMExecutionStateCommand : short {
     Stop,
     Run,
@@ -297,12 +324,14 @@ enum VMExecutionStateCommand : short {
     WriteProgramToDeviceMemory,
 }
 
+// Current VM state - see WatchNode
 enum VMExecutionState : short {
     Stopped,
     Running,
     Paused,
 }
 
+// Runtime VM errors
 enum VMExecutionError : short {
     NoError,
     Killed,
@@ -311,16 +340,21 @@ enum VMExecutionError : short {
     GenericError,
 }
 
+// Control the VM
 table SetVMExecutionState {
     request_id:uint;
     node_id:NodeId;
     command:VMExecutionStateCommand;
 }
 
+
+// VMExecutionStateChanged are sent when starting, stopping, or stapping through the vm
 table VMExecutionStateChanged {
     node_id:NodeId;
     state:VMExecutionState;
+    // Current line when stepping through
     line:uint;
+    // Runtime errors, if any
     error:VMExecutionError = NoError;
     errorMsg:string;
 }
@@ -329,6 +363,7 @@ table Breakpoint {
     line:uint;
 }
 
+// Attemps to set breakpoints - the reply will send a list of actually set breakpoints
 table SetBreakpoints {
     request_id:uint;
     node_id:NodeId;
@@ -349,54 +384,72 @@ table WatchNode {
     info_type:uint;
 }
 
+// Sent when a request fails
 table Error {
   request_id:uint;
   error:ErrorType;
 }
 
+// Acknowledge a request has been handled when the request has
+// Specific response table
 table RequestCompleted {
     request_id:uint;
 }
 
+// An aseba event - each event's value is an integer array of fixed sized
 table EventDescription {
     name:string;
     fixed_sized:uint;
     index:uint = 0;
 }
 
+// Set all events for a group
 table RegisterEvents {
     request_id:uint;
-    node_or_group_id:NodeId;
+    node_or_group_id:NodeId; // if the uuid is that of a node, events will be set on the group it belongs to.
     events:[EventDescription];
 }
 
+// The table of events changed
 table EventsDescriptionsChanged {
     node_or_group_id:NodeId;
     events:[EventDescription];
 }
 
+// Update a scratchpad.
+// This message can go in either direction
+// Either from the client when the text editort changes for example,
+// Or from the TDM to clients when an ESL file is loaded, or when another endpoint update it
 table ScratchpadUpdate {
     request_id:uint = 0;
-    scratchpad_id:NodeId (required);
-    group_id:NodeId;
-    node_id:NodeId;
+    scratchpad_id:NodeId (required);   // A scratchpad as an id which might be different from the node id
+    group_id:NodeId; // It can be affected to a node
+    node_id:NodeId;  // And a group
     language:ProgrammingLanguage = Aseba;
-    text:string (required);
-    name:string;
-    deleted:bool = false;
+    text:string (required); // Code
+    name:string;   // A name can be set in AESL files
+    deleted:bool = false; // IF this flag is thet the scatchpad no longer exist in the TDM
 }
 
+// Request a firmware update
+// Require that the node is not locked.
+// The node will be unavailable until the emd of the update.
+// And will reboot.
 table FirmwareUpgradeRequest {
     request_id:uint;
     node_id:NodeId;
 }
 
+// Events sent periodically
+// During a firmare update so
+// That the the client that initiated the upgrade can monitor the progress
 table FirmwareUpgradeStatus {
     request_id : uint;
-    node_id:NodeId;
-    progress   : double;
+    node_id    : NodeId;
+    progress   : double; // between 0..1
 }
 
+// Represent a dongle
 table Thymio2WirelessDongle {
     dongle_id   : NodeId;
     dongle_node : uint16;
@@ -408,10 +461,13 @@ table EnableThymio2PairingMode {
     enable: bool = true;
 }
 
+// Lisof dongles
+// Message sent when a dongle is connected or disconnected
 table Thymio2WirelessDonglesChanged {
     dongles: [Thymio2WirelessDongle];
 }
 
+// Pair a Thymio 2 to a dongle
 table Thymio2WirelessDonglePairingRequest {
     request_id:uint;
     dongle_id:NodeId;
@@ -420,11 +476,32 @@ table Thymio2WirelessDonglePairingRequest {
     channel_id: uint8;
 }
 
+// Thymio2WirelessDonglePairingRequest was succesful
 table Thymio2WirelessDonglePairingResponse{
     request_id:uint;
+    // The new network id
     network_id: uint16;
+    // The new channel id
     channel_id: uint8;
 }
+
+
+// Each message is wrapped in a single message object
+// That represents an union of all possible message
+// The TDM sends and expect only Message, prefixed by a size (uin32_t)
+
+// +----------------------------------------------------------+
+// | Packet                                                   |
+// ++---------++--------------------------------------------+ |
+// ||         ||        Message                             | |
+// ||         ||   +--------------------------------------+ | |
+// ||         ||   |                                      | | |
+// ||UINT_32  ||   |      One of AnyMessage               | | |
+// ||         ||   +--------------------------------------+ | |
+// ||         ||                                            | |
+// ++---------++--------------------------------------------+ |
+// |                                                          |
+// +----------------------------------------------------------+
 
 union AnyMessage {
     ConnectionHandshake,

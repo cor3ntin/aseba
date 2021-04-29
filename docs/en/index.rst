@@ -32,6 +32,14 @@ Welcome to Aseba's documentation!
 
    development/api.rst
 
+   development/protocol.rst
+
+   development/structure.rst
+
+   development/architecture.rst
+
+   development/references.rst
+
    Javascript API <https://mobsya.github.io/aseba/js/index.html>
 
 
